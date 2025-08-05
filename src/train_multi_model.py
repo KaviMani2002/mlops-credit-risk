@@ -20,7 +20,7 @@ from mlflow.tracking import MlflowClient
 PROCESSED_DATA_PATH = '../data/processed/processed_data.csv'
 PREPROCESSOR_PATH = '../data/processed/preprocessor.pkl'
 EXPERIMENT_NAME = "credit_risk_experiment"
-TRACKING_URI = "http://172.17.0.1:5000"  # Update if needed
+TRACKING_URI = "http://127.0.0.1:5000"  # Update if needed
 
 # ----------------- MLflow Setup ---------------------
 mlflow.set_tracking_uri(TRACKING_URI)
