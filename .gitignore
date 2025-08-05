@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+venv/
+*.pkl
+mlruns/
+data/raw/
+data/interim/
+data/processed/*.csv
+data/processed/*.pkl
+dvc.lock
+*.log

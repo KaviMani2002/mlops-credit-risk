@@ -1,0 +1,138 @@
+# src/streamlit_app.py
+
+import streamlit as st
+import mlflow
+import mlflow.pyfunc
+import pandas as pd
+import tempfile
+import joblib
+from mlflow.tracking import MlflowClient
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# --- Monitoring ---
+from monitoring.monitoring import track_prediction, start_prometheus_server
+
+print("👉 Calling start_prometheus_server()")
+start_prometheus_server()
+print("✅ Done calling start_prometheus_server()")
+
+# --- Constants ---
+MLFLOW_TRACKING_URI = "http://localhost:5000"
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+client = MlflowClient(tracking_uri=MLFLOW_TRACKING_URI)
+
+RAW_FEATURES = ['loan_amnt', 'int_rate', 'annual_inc', 'dti', 'home_ownership', 'purpose', 'term']
+CATEGORICAL_COLS = ['home_ownership', 'purpose', 'term']
+NUMERICAL_COLS = ['loan_amnt', 'int_rate', 'annual_inc', 'dti']
+
+
+# --- Load Model and Preprocessor ---
+@st.cache_resource(show_spinner="Loading model and preprocessor...")
+def load_model_artifacts(model_name, version):
+    model_uri = f"models:/{model_name}/{version}"
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    run_id = client.get_model_version(model_name, str(version)).run_id
+    local_dir = tempfile.mkdtemp()
+
+    # Load preprocessor
+    preprocessor_path = client.download_artifacts(run_id, "preprocessor.pkl", local_dir)
+    preprocessor = joblib.load(preprocessor_path)
+
+    # Try to load feature names
+    try:
+        feature_path = client.download_artifacts(run_id, "model_features.txt", local_dir)
+        with open(feature_path, "r") as f:
+            feature_names = [line.strip() for line in f.readlines()]
+    except Exception:
+        feature_names = list(preprocessor.get_feature_names_out())
+
+    return model, preprocessor, feature_names
+
+
+# --- Prediction Logic with Monitoring ---
+@track_prediction
+def make_prediction(model, preprocessor, df, feature_names):
+    X_array = preprocessor.transform(df)
+    X_df = pd.DataFrame(X_array, columns=feature_names)
+    return model.predict(X_df)[0]
+
+
+@track_prediction
+def make_batch_prediction(model, preprocessor, df, feature_names):
+    X_array = preprocessor.transform(df)
+    X_df = pd.DataFrame(X_array, columns=feature_names)
+    return model.predict(X_df)
+
+
+# --- Streamlit UI ---
+st.set_page_config(page_title="Credit Risk Predictor", layout="wide")
+st.title("📊 Credit Risk Prediction App")
+
+# --- Sidebar: Model Selection ---
+st.sidebar.header("🧠 Select Model")
+registered_models = client.search_registered_models()
+model_names = sorted([m.name for m in registered_models])
+selected_model = st.sidebar.selectbox("Registered Model", model_names)
+
+if selected_model:
+    versions_info = client.search_model_versions(f"name='{selected_model}'")
+    version_list = sorted([int(v.version) for v in versions_info], reverse=True)
+    selected_version = st.sidebar.selectbox("Model Version", version_list)
+
+    model, preprocessor, feature_names = load_model_artifacts(selected_model, selected_version)
+    st.sidebar.success(f"✅ Loaded: {selected_model} v{selected_version}")
+
+    # --- Tabs ---
+    tab1, tab2 = st.tabs(["🔹 Single Prediction", "📂 Batch Prediction"])
+
+    # --- Tab 1: Single Prediction ---
+    with tab1:
+        st.subheader("Enter Customer Information")
+
+        input_data = {}
+        for col in NUMERICAL_COLS:
+            input_data[col] = st.number_input(f"{col}", value=0.0)
+
+        input_data['home_ownership'] = st.selectbox("home_ownership", ['MORTGAGE', 'RENT', 'OWN', 'OTHER', 'NONE', 'ANY'])
+        input_data['purpose'] = st.selectbox("purpose", [
+            'debt_consolidation', 'credit_card', 'home_improvement', 'major_purchase', 'small_business',
+            'car', 'wedding', 'house', 'medical', 'moving', 'vacation', 'educational',
+            'renewable_energy', 'other'
+        ])
+        input_data['term'] = st.selectbox("term", ['36 months', '60 months'])
+
+        if st.button("Predict", type="primary"):
+            try:
+                df = pd.DataFrame([input_data])
+                pred = make_prediction(model, preprocessor, df, feature_names)
+                st.success(f"Prediction: {'⚠️ High Risk (1)' if pred == 1 else '✅ Low Risk (0)'}")
+            except Exception as e:
+                st.error(f"❌ Prediction error: {e}")
+
+    # --- Tab 2: Batch Prediction ---
+    with tab2:
+        st.subheader("Upload CSV for Batch Prediction")
+        uploaded_file = st.file_uploader("Upload a CSV file with the 7 input features", type=["csv"])
+
+        if uploaded_file:
+            try:
+                df = pd.read_csv(uploaded_file)
+                missing = set(RAW_FEATURES) - set(df.columns)
+                if missing:
+                    st.error(f"Missing columns in uploaded file: {missing}")
+                else:
+                    preds = make_batch_prediction(model, preprocessor, df, feature_names)
+                    df["prediction"] = preds
+                    df["prediction"] = df["prediction"].map({1: "1 (High Risk)", 0: "0 (Low Risk)"})
+                    st.dataframe(df.head())
+
+                    csv = df.to_csv(index=False).encode("utf-8")
+                    st.download_button("📥 Download Predictions", csv, "predictions.csv", "text/csv")
+
+            except Exception as e:
+                st.error(f"❌ Error processing file: {e}")
+
