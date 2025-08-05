@@ -26,4 +26,4 @@ jobs:
 
       - name: ✅ Run training script
         run: |
-          python src/train_model.py
+          python src/train_multi_model.py
