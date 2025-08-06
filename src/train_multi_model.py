@@ -4,11 +4,15 @@ import joblib
 import mlflow
 import mlflow.sklearn
 import xgboost as xgb
+import warnings
 
+from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+warnings.filterwarnings("ignore")
 
 # ----------------- Configuration -------------------
 PROCESSED_DATA_PATH = 'data/processed/processed_data.csv'
@@ -25,10 +29,7 @@ print("📥 Loading processed data...")
 df = pd.read_csv(PROCESSED_DATA_PATH)
 X = df.drop("loan_status", axis=1)
 y = df["loan_status"]
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-feature_names = X.columns.tolist()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # ----------------- Load Preprocessor ----------------
 preprocessor = joblib.load(PREPROCESSOR_PATH)
@@ -45,9 +46,15 @@ for model_key, model in models.items():
     with mlflow.start_run(run_name=model_key):
         print(f"\n🚀 Training model: {model_key}")
 
-        # Fit
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+        # Combine preprocessor and model into a pipeline
+        pipeline = Pipeline([
+            ("preprocessor", preprocessor),
+            ("classifier", model)
+        ])
+
+        # Fit pipeline
+        pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
 
         # Evaluation
         acc = accuracy_score(y_test, y_pred)
@@ -57,7 +64,7 @@ for model_key, model in models.items():
 
         print(f"📊 Metrics — Acc: {acc:.4f} | Prec: {prec:.4f} | Rec: {rec:.4f} | F1: {f1:.4f}")
 
-        # Log params
+        # Log hyperparameters
         mlflow.log_params(model.get_params())
 
         # Log metrics
@@ -68,9 +75,12 @@ for model_key, model in models.items():
             "f1_score": f1
         })
 
-        # Log model and register under credit-risk-model
-        mlflow.sklearn.log_model(pipeline, "model", registered_model_name="credit-risk-model")
+        # Log model and register
+        mlflow.sklearn.log_model(
+            pipeline,
+            "model",
+            registered_model_name="credit-risk-model"
+        )
 
         print(f"✅ Completed: {model_key} | Logged to MLflow\n")
-
 
