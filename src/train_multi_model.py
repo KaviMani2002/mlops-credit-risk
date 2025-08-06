@@ -1,3 +1,4 @@
+
 import os
 import pandas as pd
 import joblib
@@ -6,7 +7,6 @@ import mlflow.sklearn
 import xgboost as xgb
 import matplotlib.pyplot as plt
 import seaborn as sns
-import warnings
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -14,117 +14,123 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 )
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.impute import SimpleImputer
+from mlflow.models.signature import infer_signature
+from mlflow.tracking import MlflowClient
 
-warnings.filterwarnings("ignore")
+# ----------------- Configuration -------------------
+PROCESSED_DATA_PATH = 'data/processed/processed_data.csv'
+PREPROCESSOR_PATH = 'data/processed/preprocessor.pkl'
+EXPERIMENT_NAME = "credit_risk_experiment"
+TRACKING_URI = "http://20.106.177.129:5000"  # Update if needed
 
-# -------------------- Setup --------------------
-mlflow.set_tracking_uri("http://20.106.177.129:5000")
-mlflow.set_experiment("credit_risk_experiment")
+# ----------------- MLflow Setup ---------------------
+mlflow.set_tracking_uri(TRACKING_URI)
+mlflow.set_experiment(EXPERIMENT_NAME)
 
-# -------------------- Load Data --------------------
-print("📥 Loading cleaned data...")
-data_path = "data/processed/cleaned_data.csv"
-df = pd.read_csv(data_path)
+# ----------------- Load Data ------------------------
+print("📥 Loading processed data...")
+df = pd.read_csv(PROCESSED_DATA_PATH)
+X = df.drop("loan_status", axis=1)
+y = df["loan_status"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+feature_names = X.columns.tolist()
 
-# -------------------- Features & Target --------------------
-target = "loan_status"
-features = ['loan_amnt', 'term', 'int_rate', 'emp_length', 'annual_inc', 'dti', 'purpose']
+# ----------------- Load Preprocessor ----------------
+preprocessor = joblib.load(PREPROCESSOR_PATH)
 
-X = df[features]
-y = df[target]
-
-# -------------------- Column Types --------------------
-categorical_cols = ['term', 'emp_length', 'purpose']
-numerical_cols = ['loan_amnt', 'int_rate', 'annual_inc', 'dti']
-
-# -------------------- Preprocessor --------------------
-categorical_transformer = Pipeline(steps=[
-    ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("encoder", OneHotEncoder(handle_unknown="ignore"))
-])
-
-numerical_transformer = Pipeline(steps=[
-    ("imputer", SimpleImputer(strategy="mean")),
-    ("scaler", StandardScaler())
-])
-
-preprocessor = ColumnTransformer(transformers=[
-    ("num", numerical_transformer, numerical_cols),
-    ("cat", categorical_transformer, categorical_cols)
-])
-
-# Save preprocessor (optional)
-preprocessor_path = "artifacts/preprocessor.pkl"
-os.makedirs("artifacts", exist_ok=True)
-joblib.dump(preprocessor, preprocessor_path)
-print(f"💾 Preprocessor saved to: {preprocessor_path}")
-
-# -------------------- Models --------------------
+# ----------------- Models to Train ------------------
 models = {
-    "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
-    "LogisticRegression": LogisticRegression(max_iter=1000),
-    "XGBoost": xgb.XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+    "rf": RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42, class_weight="balanced"),
+    "logreg": LogisticRegression(max_iter=1000),
+    "xgb": xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
 }
 
-# -------------------- Train/Test Split --------------------
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# ----------------- Helper: Save Confusion Matrix ----
+def save_confusion_matrix(y_true, y_pred, filename):
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(4, 3))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix")
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close()
 
-# -------------------- Train & Log Loop --------------------
-for model_name, model_instance in models.items():
-    print(f"\n🚀 Training: {model_name}")
+# ----------------- Train and Log --------------------
+for model_key, model in models.items():
+    with mlflow.start_run(run_name=model_key):
+        print(f"\n🚀 Training model: {model_key}")
 
-    pipe = Pipeline(steps=[
-        ("preprocessor", preprocessor),
-        ("classifier", model_instance)
-    ])
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
 
-    with mlflow.start_run(run_name=model_name):
-        # Set tags
-        mlflow.set_tag("model_name", model_name)
-
-        # Log model params
-        mlflow.log_params(model_instance.get_params())
-
-        # Train
-        pipe.fit(X_train, y_train)
-        y_pred = pipe.predict(X_test)
-
-        # Metrics
+        # Evaluation
         acc = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+        prec = precision_score(y_test, y_pred, zero_division=0)
+        rec = recall_score(y_test, y_pred, zero_division=0)
+        f1 = f1_score(y_test, y_pred, zero_division=0)
 
-        print(f"✅ {model_name} | Accuracy: {acc:.4f} | Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
+        print(f"📊 Metrics — Acc: {acc:.4f} | Prec: {prec:.4f} | Rec: {rec:.4f} | F1: {f1:.4f}")
 
         # Log metrics
-        mlflow.log_metric("accuracy", acc)
-        mlflow.log_metric("precision", precision)
-        mlflow.log_metric("recall", recall)
-        mlflow.log_metric("f1_score", f1)
+        mlflow.log_metrics({
+            "accuracy": acc,
+            "precision": prec,
+            "recall": rec,
+            "f1_score": f1
+        })
 
-        # Confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
-        plt.figure(figsize=(5, 4))
-        sns.heatmap(cm, annot=True, fmt='d', cmap="Blues")
-        plt.title(f"{model_name} Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("Actual")
-        cm_path = f"artifacts/{model_name}_conf_matrix.png"
-        plt.savefig(cm_path)
-        mlflow.log_artifact(cm_path)
-        plt.close()
+        # Log model parameters
+        mlflow.log_params(model.get_params())
 
-        # Log model and register it
+        # Log model
+        signature = infer_signature(X_train, model.predict(X_train))
+        registered_model_name = f"credit_risk_{model_key}_model"
+
         mlflow.sklearn.log_model(
-            sk_model=pipe,
+            sk_model=model,
             artifact_path="model",
-            registered_model_name="credit-risk-model"
+            input_example=X_train.iloc[:1],
+            signature=signature,
+            registered_model_name=registered_model_name
         )
 
-print("\n✅✅ All models trained and logged to MLflow!")
+        # Log preprocessor
+        joblib.dump(preprocessor, "preprocessor.pkl")
+        mlflow.log_artifact("preprocessor.pkl")
+        os.remove("preprocessor.pkl")
+
+        # Log feature list
+        with open("model_features.txt", "w") as f:
+            f.write("\n".join(feature_names))
+        mlflow.log_artifact("model_features.txt")
+        os.remove("model_features.txt")
+
+        # Log confusion matrix
+        cm_filename = f"{model_key}_confusion_matrix.png"
+        save_confusion_matrix(y_test, y_pred, cm_filename)
+        mlflow.log_artifact(cm_filename)
+        os.remove(cm_filename)
+
+        # Add model tags
+        client = MlflowClient()
+        versions = client.get_latest_versions(registered_model_name, stages=["None"])
+        if versions:
+            latest_version = versions[-1].version
+            client.set_registered_model_tag(registered_model_name, "feature_names", ",".join(feature_names))
+            client.set_registered_model_tag(registered_model_name, "feature_count", str(len(feature_names)))
+            client.set_model_version_tag(registered_model_name, latest_version, "run_id", mlflow.active_run().info.run_id)
+
+            # Optional: move to Staging
+            # client.transition_model_version_stage(
+            #     name=registered_model_name,
+            #     version=latest_version,
+            #     stage="Staging"
+            # )
+
+        print(f"✅ Completed: {model_key} | Logged to MLflow\n")
+
 
