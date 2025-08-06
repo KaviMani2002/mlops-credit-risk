@@ -69,11 +69,9 @@ for model_key, model in models.items():
         })
 
         # Log model and register under credit-risk-model
-        #mlflow.sklearn.log_model(
-         #   sk_model=model,
-          #  artifact_path="model",
-           # registered_model_name="credit-risk-model"
-        #)
+        mlflow.sklearn.log_model(pipeline, "model", registered_model_name="credit-risk-model")
 
         print(f"✅ Completed: {model_key} | Logged to MLflow\n")
+
+(credit-risk) root@mlops:/home/azureuser/mlops-credit-risk-demo#
 
