@@ -94,12 +94,6 @@ for model_name, model in models.items():
         mlflow.log_metric("recall", rec)
         mlflow.log_metric("f1_score", f1)
 
-        # Save and log model
-        mlflow.sklearn.log_model(
-            sk_model=pipe,
-            artifact_path="model",
-            registered_model_name="credit-risk-model"
-        )
 
         # Confusion matrix plot
         cm = confusion_matrix(y_test, y_pred)
