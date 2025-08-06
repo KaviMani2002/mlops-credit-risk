@@ -22,9 +22,14 @@ PREPROCESSOR_PATH = 'data/processed/preprocessor.pkl'
 EXPERIMENT_NAME = "credit_risk_experiment"
 TRACKING_URI = "http://20.106.177.129:5000"  # Update if needed
 
+# Ensure temp folder exists
+TEMP_DIR = "temp_artifacts"
+os.makedirs(TEMP_DIR, exist_ok=True)
+
 # ----------------- MLflow Setup ---------------------
 mlflow.set_tracking_uri(TRACKING_URI)
 mlflow.set_experiment(EXPERIMENT_NAME)
+os.environ["MLFLOW_ARTIFACT_URI"] = "./mlruns"
 
 # ----------------- Load Data ------------------------
 print("📥 Loading processed data...")
@@ -47,7 +52,7 @@ models = {
 }
 
 # ----------------- Helper: Save Confusion Matrix ----
-def save_confusion_matrix(y_true, y_pred, filename):
+def save_confusion_matrix(y_true, y_pred, filepath):
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(4, 3))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
@@ -55,7 +60,7 @@ def save_confusion_matrix(y_true, y_pred, filename):
     plt.ylabel("Actual")
     plt.title("Confusion Matrix")
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig(filepath)
     plt.close()
 
 # ----------------- Train and Log --------------------
@@ -98,21 +103,23 @@ for model_key, model in models.items():
         )
 
         # Log preprocessor
-        joblib.dump(preprocessor, "preprocessor.pkl")
-        mlflow.log_artifact("preprocessor.pkl")
-        os.remove("preprocessor.pkl")
+        preprocessor_path = os.path.join(TEMP_DIR, f"{model_key}_preprocessor.pkl")
+        joblib.dump(preprocessor, preprocessor_path)
+        mlflow.log_artifact(preprocessor_path)
+        os.remove(preprocessor_path)
 
         # Log feature list
-        with open("model_features.txt", "w") as f:
+        feature_path = os.path.join(TEMP_DIR, f"{model_key}_model_features.txt")
+        with open(feature_path, "w") as f:
             f.write("\n".join(feature_names))
-        mlflow.log_artifact("model_features.txt")
-        os.remove("model_features.txt")
+        mlflow.log_artifact(feature_path)
+        os.remove(feature_path)
 
         # Log confusion matrix
-        cm_filename = f"{model_key}_confusion_matrix.png"
-        save_confusion_matrix(y_test, y_pred, cm_filename)
-        mlflow.log_artifact(cm_filename)
-        os.remove(cm_filename)
+        cm_path = os.path.join(TEMP_DIR, f"{model_key}_confusion_matrix.png")
+        save_confusion_matrix(y_test, y_pred, cm_path)
+        mlflow.log_artifact(cm_path)
+        os.remove(cm_path)
 
         # Add model tags
         client = MlflowClient()
@@ -122,13 +129,6 @@ for model_key, model in models.items():
             client.set_registered_model_tag(registered_model_name, "feature_names", ",".join(feature_names))
             client.set_registered_model_tag(registered_model_name, "feature_count", str(len(feature_names)))
             client.set_model_version_tag(registered_model_name, latest_version, "run_id", mlflow.active_run().info.run_id)
-
-            # Optional: move to Staging
-            # client.transition_model_version_stage(
-            #     name=registered_model_name,
-            #     version=latest_version,
-            #     stage="Staging"
-            # )
 
         print(f"✅ Completed: {model_key} | Logged to MLflow\n")
 
