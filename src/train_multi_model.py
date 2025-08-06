@@ -17,8 +17,8 @@ from mlflow.models.signature import infer_signature
 from mlflow.tracking import MlflowClient
 
 # ----------------- Configuration -------------------
-PROCESSED_DATA_PATH = '../data/processed/processed_data.csv'
-PREPROCESSOR_PATH = '../data/processed/preprocessor.pkl'
+PROCESSED_DATA_PATH = 'data/processed/processed_data.csv'
+PREPROCESSOR_PATH = 'data/processed/preprocessor.pkl'
 EXPERIMENT_NAME = "credit_risk_experiment"
 TRACKING_URI = "http://20.106.177.129:5000"  # Update if needed
 
