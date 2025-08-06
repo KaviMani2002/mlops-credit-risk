@@ -25,10 +25,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 📁 Create required directories
-        run: |
-          mkdir -p data/processed
-
       - name: 🚀 Run training script
         env:
           MLFLOW_TRACKING_URI: http://20.106.177.129:5000  # Your MLflow URI
