@@ -28,6 +28,7 @@ jobs:
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
+          dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
