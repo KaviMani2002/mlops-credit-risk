@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore")
 
 # ---------------------- Configuration ----------------------
 EXPERIMENT_NAME = "credit_risk_experiment"
-MLFLOW_TRACKING_URI = "http://127.0.0.1:5000"
+MLFLOW_TRACKING_URI = "http://0.0.0.0:5000"
 
 # ---------------------- Set MLflow ----------------------
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
