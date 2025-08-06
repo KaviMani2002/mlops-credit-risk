@@ -24,6 +24,8 @@ warnings.filterwarnings("ignore")
 # ---------------------- Configuration ----------------------
 EXPERIMENT_NAME = "credit_risk_experiment"
 MLFLOW_TRACKING_URI = "http://20.106.177.129:5000"
+ARTIFACT_DIR = "artifacts"
+os.makedirs(ARTIFACT_DIR, exist_ok=True)
 
 # ---------------------- Set MLflow ----------------------
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -94,6 +96,12 @@ for model_name, model in models.items():
         mlflow.log_metric("recall", rec)
         mlflow.log_metric("f1_score", f1)
 
+        # Log model
+        mlflow.sklearn.log_model(
+            sk_model=pipe,
+            artifact_path="model",
+            registered_model_name="credit-risk-model"
+        )
 
         # Confusion matrix plot
         cm = confusion_matrix(y_test, y_pred)
@@ -102,9 +110,9 @@ for model_name, model in models.items():
         plt.title(f"{model_name} Confusion Matrix")
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
-        cm_filename = f"{model_name}_conf_matrix.png"
+        cm_filename = os.path.join(ARTIFACT_DIR, f"{model_name}_conf_matrix.png")
         plt.savefig(cm_filename)
-        mlflow.log_artifact(cm_filename)
+        mlflow.log_artifact(cm_filename, artifact_path="confusion_matrices")
         plt.close()
 
 print("✅ All models trained and logged to MLflow.")
