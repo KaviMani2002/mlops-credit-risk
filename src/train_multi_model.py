@@ -73,5 +73,4 @@ for model_key, model in models.items():
 
         print(f"✅ Completed: {model_key} | Logged to MLflow\n")
 
-(credit-risk) root@mlops:/home/azureuser/mlops-credit-risk-demo#
 
