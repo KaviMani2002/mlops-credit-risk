@@ -1,4 +1,4 @@
-name: Train Multi Model with DVC + Azure Remote
+name: Train Multi Model with DVC
 
 on:
   workflow_dispatch:
@@ -20,14 +20,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Install dependencies + DVC Azure
+      - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install dvc[azure]
 
-      - name: 🔐 Set Azure DVC connection string
+      - name: 🛠️ Set up DVC Azure remote
         run: |
+          dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.DVC_AZURE_CONNECTION_STRING }}"
 
       - name: 📡 Pull data from DVC remote
