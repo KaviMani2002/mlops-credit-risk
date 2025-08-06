@@ -1,4 +1,4 @@
-name: Train Multi Model
+name: Train Multi Model with DVC + Azure Remote
 
 on:
   workflow_dispatch:
@@ -6,9 +6,6 @@ on:
     paths:
       - 'src/**.py'
       - '.github/workflows/train.yml'
-      - 'data/**'
-      - 'dvc.yaml'
-      - '**.dvc'
 
 jobs:
   train-model:
@@ -23,15 +20,18 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install dependencies + DVC Azure
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install dvc  # Install DVC CLI
+          pip install dvc[azure]
 
-      - name: 📡 Pull DVC-tracked data
+      - name: 🔐 Set Azure DVC connection string
         run: |
-          dvc pull
+          dvc remote modify azureremote connection_string "${{ secrets.DVC_AZURE_CONNECTION_STRING }}"
+
+      - name: 📡 Pull data from DVC remote
+        run: dvc pull
 
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
