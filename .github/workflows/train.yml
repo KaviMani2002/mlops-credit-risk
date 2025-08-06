@@ -24,6 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install dvc[azure]
+          pip install fastapi uvicorn mlflow gunicorn opentelemetry-sdk opentelemetry-exporter-jaeger prometheus_client
 
       - name: 🪣 Set up DVC Azure Remote & Pull
         env:
@@ -42,6 +43,10 @@ jobs:
           python src/feature_engineering.py
 
       - name: ✅ Train model(s)
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
         run: |
+          echo "📡 Setting MLflow tracking URI: $MLFLOW_TRACKING_URI"
+          export MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI
           python src/train_multi_model.py
 
