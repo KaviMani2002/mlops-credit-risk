@@ -26,6 +26,7 @@ TRACKING_URI = "http://20.106.177.129:5000"  # Update if needed
 # ----------------- MLflow Setup ---------------------
 mlflow.set_tracking_uri(TRACKING_URI)
 mlflow.set_experiment(EXPERIMENT_NAME)
+mlflow.set_registry_uri("file:///tmp/mlruns")
 
 # ----------------- Load Data ------------------------
 print("📥 Loading processed data...")
