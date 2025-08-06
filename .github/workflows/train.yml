@@ -48,3 +48,4 @@ jobs:
           MLFLOW_TRACKING_URI: http://20.106.177.129:5000
         run: python src/train_multi_model.py
 
+
