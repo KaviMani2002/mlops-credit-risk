@@ -24,10 +24,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install dvc[azure]
-
-      - name: 🔐 Configure Azure DVC Remote
+      
+      - name: 🪣 Set up DVC Azure Remote
         run: |
-          dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
+          dvc remote add -d azureremote azure://dvcdata
+          dvc remote modify azureremote connection_string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}"
+
+      - name: ⬇️ Pull data from DVC
+        run: |
           dvc pull
 
       - name: 🧹 Clean raw data
