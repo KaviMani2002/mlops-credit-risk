@@ -4,8 +4,8 @@ import os
 import pandas as pd
 
 # ✅ Updated path to use ingested data instead of raw
-INPUT_PATH = "../data/ingested/ingested_data.csv"
-OUTPUT_PATH = "../data/processed/cleaned_data.csv"
+INPUT_PATH = "data/raw/accepted_2007_to_2018Q4.csv"
+OUTPUT_PATH = "data/processed/cleaned_data.csv"
 
 # Selected useful columns (can update later if needed)
 SELECTED_COLUMNS = [
