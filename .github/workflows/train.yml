@@ -11,6 +11,14 @@ jobs:
   train-model:
     runs-on: ubuntu-latest
 
+    env:
+      MLFLOW_TRACKING_URI: http://20.106.177.129:5000
+      AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+      AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+      # or use the below line if you're using connection string instead
+      # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      GITHUB_ACTIONS: true  # lets your script detect it's running in CI
+
     steps:
       - name: 📥 Checkout repo
         uses: actions/checkout@v3
@@ -32,8 +40,7 @@ jobs:
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
-        run: |
-          dvc pull
+        run: dvc pull
 
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
@@ -45,6 +52,5 @@ jobs:
         run: python src/feature_engineering.py
 
       - name: 🚀 Train models and log to MLflow
-        env:
-          MLFLOW_TRACKING_URI: http://20.106.177.129:5000
         run: python src/train_multi_model.py
+
