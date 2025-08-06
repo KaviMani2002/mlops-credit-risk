@@ -91,13 +91,13 @@ for model_key, model in models.items():
         signature = infer_signature(X_train, model.predict(X_train))
         registered_model_name = f"credit_risk_{model_key}_model"
 
-        mlflow.sklearn.log_model(
-            sk_model=model,
-            artifact_path="model",
-            input_example=X_train.iloc[:1],
-            signature=signature,
-            registered_model_name=registered_model_name
-        )
+        #mlflow.sklearn.log_model(
+         #   sk_model=model,
+          #  artifact_path="model",
+           # input_example=X_train.iloc[:1],
+            #signature=signature,
+            #registered_model_name=registered_model_name
+        #)
 
         # Log preprocessor
         joblib.dump(preprocessor, "preprocessor.pkl")

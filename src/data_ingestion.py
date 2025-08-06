@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 
-RAW_DATA_PATH = "../data/raw/accepted_2007_to_2018Q4.csv"
-OUTPUT_DIR = "../data/ingested"
+RAW_DATA_PATH = "data/raw/accepted_2007_to_2018Q4.csv"
+OUTPUT_DIR = "data/ingested"
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "ingested_data.csv")
 
 def ingest_data():
