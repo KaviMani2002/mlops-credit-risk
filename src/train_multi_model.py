@@ -7,113 +7,108 @@ import xgboost as xgb
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
+warnings.filterwarnings("ignore")
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 )
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 
-warnings.filterwarnings("ignore")
+# Set experiment
+mlflow.set_experiment("credit_risk_experiment")
 
-# ---------------------- Configuration ----------------------
-EXPERIMENT_NAME = "credit_risk_experiment"
-MLFLOW_TRACKING_URI = "http://20.106.177.129:5000"
+# Create artifact directory
 ARTIFACT_DIR = "artifacts"
 os.makedirs(ARTIFACT_DIR, exist_ok=True)
 
-# ---------------------- Set MLflow ----------------------
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment(EXPERIMENT_NAME)
-
-# ---------------------- Load Data ----------------------
+# Load cleaned data
 print("📥 Loading cleaned data...")
-df = pd.read_csv("data/processed/cleaned_data.csv")
+data = pd.read_csv("data/processed/cleaned_data.csv")
 
-# ---------------------- Define Features ----------------------
-target = 'loan_status'
-categorical_features = ['term', 'purpose']
-numerical_features = ['loan_amnt', 'int_rate', 'annual_inc', 'dti']
+# Define features and target
+target = "loan_status"
+X = data.drop(columns=[target])
+y = data[target]
 
-X = df[categorical_features + numerical_features]
-y = df[target]
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# ---------------------- Split Data ----------------------
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+# Preprocessing pipeline
+numeric_features = ["loan_amnt", "int_rate", "annual_inc", "dti"]
+categorical_features = ["home_ownership", "purpose", "term"]
 
-# ---------------------- Preprocessor ----------------------
-numeric_pipeline = Pipeline([
-    ("imputer", SimpleImputer(strategy="median")),
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="mean")),
     ("scaler", StandardScaler())
 ])
 
-categorical_pipeline = Pipeline([
+categorical_transformer = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("onehot", OneHotEncoder(handle_unknown="ignore"))
+    ("encoder", OneHotEncoder(handle_unknown="ignore"))
 ])
 
-preprocessor = ColumnTransformer([
-    ("num", numeric_pipeline, numerical_features),
-    ("cat", categorical_pipeline, categorical_features)
+preprocessor = ColumnTransformer(transformers=[
+    ("num", numeric_transformer, numeric_features),
+    ("cat", categorical_transformer, categorical_features)
 ])
 
-# ---------------------- Model Configs ----------------------
+# Define models
 models = {
     "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
-    "XGBoost": xgb.XGBClassifier(use_label_encoder=False, eval_metric='logloss'),
-    "LogisticRegression": LogisticRegression(max_iter=1000)
+    "LogisticRegression": LogisticRegression(max_iter=1000),
+    "XGBoost": xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss")
 }
 
-# ---------------------- Training & MLflow Logging ----------------------
-for model_name, model in models.items():
+for model_name, model_algo in models.items():
     print(f"🚀 Training: {model_name}")
+    
+    # Wrap model in a pipeline
+    pipeline = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", model_algo)
+    ])
+    
     with mlflow.start_run(run_name=model_name):
-        pipe = Pipeline([
-            ("preprocessor", preprocessor),
-            ("classifier", model)
-        ])
+        # Fit model
+        pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
 
-        pipe.fit(X_train, y_train)
-        y_pred = pipe.predict(X_test)
-
+        # Evaluation metrics
         acc = accuracy_score(y_test, y_pred)
-        prec = precision_score(y_test, y_pred)
-        rec = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, zero_division=0)
+        recall = recall_score(y_test, y_pred, zero_division=0)
+        f1 = f1_score(y_test, y_pred, zero_division=0)
 
         print(f"✅ {model_name} | Accuracy: {acc:.4f} | F1: {f1:.4f}")
 
         # Log metrics
         mlflow.log_metric("accuracy", acc)
-        mlflow.log_metric("precision", prec)
-        mlflow.log_metric("recall", rec)
+        mlflow.log_metric("precision", precision)
+        mlflow.log_metric("recall", recall)
         mlflow.log_metric("f1_score", f1)
-
-        # Log model
-        mlflow.sklearn.log_model(
-            sk_model=pipe,
-            artifact_path="model",
-            registered_model_name="credit-risk-model"
-        )
 
         # Confusion matrix plot
         cm = confusion_matrix(y_test, y_pred)
         plt.figure(figsize=(6, 4))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
         plt.title(f"{model_name} Confusion Matrix")
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
-        cm_filename = os.path.join(ARTIFACT_DIR, f"{model_name}_conf_matrix.png")
+        cm_filename = os.path.join(ARTIFACT_DIR, f"{model_name}_confusion_matrix.png")
         plt.savefig(cm_filename)
-        mlflow.log_artifact(cm_filename, artifact_path="confusion_matrices")
         plt.close()
+        mlflow.log_artifact(cm_filename)
 
-print("✅ All models trained and logged to MLflow.")
+        # Log and register model
+        mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            artifact_path="model",
+            registered_model_name="credit-risk-model"
+        )
 
