@@ -1,5 +1,5 @@
+
 import os
-import tempfile
 import pandas as pd
 import joblib
 import mlflow
@@ -7,7 +7,6 @@ import mlflow.sklearn
 import xgboost as xgb
 import matplotlib.pyplot as plt
 import seaborn as sns
-import warnings
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -18,19 +17,17 @@ from sklearn.metrics import (
 from mlflow.models.signature import infer_signature
 from mlflow.tracking import MlflowClient
 
-warnings.filterwarnings("ignore")
-
 # ----------------- Configuration -------------------
 PROCESSED_DATA_PATH = 'data/processed/processed_data.csv'
 PREPROCESSOR_PATH = 'data/processed/preprocessor.pkl'
 EXPERIMENT_NAME = "credit_risk_experiment"
-TRACKING_URI = "http://20.106.177.129:5000"
+TRACKING_URI = "http://20.106.177.129:5000"  # Update if needed
 
-# ----------------- MLflow Setup --------------------
+# ----------------- MLflow Setup ---------------------
 mlflow.set_tracking_uri(TRACKING_URI)
 mlflow.set_experiment(EXPERIMENT_NAME)
 
-# ----------------- Load Data -----------------------
+# ----------------- Load Data ------------------------
 print("📥 Loading processed data...")
 df = pd.read_csv(PROCESSED_DATA_PATH)
 X = df.drop("loan_status", axis=1)
@@ -40,34 +37,33 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 feature_names = X.columns.tolist()
 
-# ----------------- Load Preprocessor ---------------
+# ----------------- Load Preprocessor ----------------
 preprocessor = joblib.load(PREPROCESSOR_PATH)
 
-# ----------------- Models to Train -----------------
+# ----------------- Models to Train ------------------
 models = {
     "rf": RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42, class_weight="balanced"),
     "logreg": LogisticRegression(max_iter=1000),
     "xgb": xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss", random_state=42)
 }
 
-# ----------------- Helper: Save Confusion Matrix ---
-def save_confusion_matrix(y_true, y_pred):
+# ----------------- Helper: Save Confusion Matrix ----
+def save_confusion_matrix(y_true, y_pred, filename):
     cm = confusion_matrix(y_true, y_pred)
-    fig, ax = plt.subplots(figsize=(4, 3))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    ax.set_title("Confusion Matrix")
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    plt.figure(figsize=(4, 3))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix")
     plt.tight_layout()
-    plt.savefig(tmp_file.name)
+    plt.savefig(filename)
     plt.close()
-    return tmp_file.name
 
-# ----------------- Train and Log -------------------
+# ----------------- Train and Log --------------------
 for model_key, model in models.items():
     with mlflow.start_run(run_name=model_key):
         print(f"\n🚀 Training model: {model_key}")
+
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
@@ -102,24 +98,24 @@ for model_key, model in models.items():
             registered_model_name=registered_model_name
         )
 
-        # Log preprocessor safely
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as tmp:
-            joblib.dump(preprocessor, tmp.name)
-            mlflow.log_artifact(tmp.name)
-            os.remove(tmp.name)
+        # Log preprocessor
+        joblib.dump(preprocessor, "preprocessor.pkl")
+        mlflow.log_artifact("preprocessor.pkl")
+        os.remove("preprocessor.pkl")
 
-        # Log feature names
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w') as f:
+        # Log feature list
+        with open("model_features.txt", "w") as f:
             f.write("\n".join(feature_names))
-            mlflow.log_artifact(f.name)
-            os.remove(f.name)
+        mlflow.log_artifact("model_features.txt")
+        os.remove("model_features.txt")
 
         # Log confusion matrix
-        cm_path = save_confusion_matrix(y_test, y_pred)
-        mlflow.log_artifact(cm_path)
-        os.remove(cm_path)
+        cm_filename = f"{model_key}_confusion_matrix.png"
+        save_confusion_matrix(y_test, y_pred, cm_filename)
+        mlflow.log_artifact(cm_filename)
+        os.remove(cm_filename)
 
-        # Register model tags
+        # Add model tags
         client = MlflowClient()
         versions = client.get_latest_versions(registered_model_name, stages=["None"])
         if versions:
@@ -128,5 +124,13 @@ for model_key, model in models.items():
             client.set_registered_model_tag(registered_model_name, "feature_count", str(len(feature_names)))
             client.set_model_version_tag(registered_model_name, latest_version, "run_id", mlflow.active_run().info.run_id)
 
+            # Optional: move to Staging
+            # client.transition_model_version_stage(
+            #     name=registered_model_name,
+            #     version=latest_version,
+            #     stage="Staging"
+            # )
+
         print(f"✅ Completed: {model_key} | Logged to MLflow\n")
+
 
