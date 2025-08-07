@@ -55,4 +55,4 @@ jobs:
         run: python src/train_multi_model.py
       
       - name: 🚀 Promote Models to Staging stage
-        run: python sr/promote_best_models.py
+        run: python src/promote_best_models.py
