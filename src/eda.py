@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
+
 # Paths
 DATA_PATH = "../data/processed/cleaned_data.csv"
 PLOT_DIR = "../data/eda_plots/"
