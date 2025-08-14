@@ -42,15 +42,61 @@ jobs:
       - name: ⬇️ Pull data from Azure DVC remote
         run: dvc pull
 
+      # ---------- DATA INGESTION ----------
+      - name: 🔍 Before Data Ingestion - Show working directory and files
+        run: |
+          echo "PWD before ingestion:"
+          pwd
+          echo "Files before ingestion:"
+          ls -R
+
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
+
+      - name: 🔍 After Data Ingestion - Show working directory and files
+        run: |
+          echo "PWD after ingestion:"
+          pwd
+          echo "Files after ingestion:"
+          ls -R
+
+      # ---------- DATA CLEANING ----------
+      - name: 🔍 Before Data Cleaning - Show working directory and files
+        run: |
+          echo "PWD before cleaning:"
+          pwd
+          echo "Files before cleaning:"
+          ls -R
 
       - name: 🧹 Run data cleaning
         run: python src/data_cleaning.py
 
+      - name: 🔍 After Data Cleaning - Show working directory and files
+        run: |
+          echo "PWD after cleaning:"
+          pwd
+          echo "Files after cleaning:"
+          ls -R
+
+      # ---------- FEATURE ENGINEERING ----------
+      - name: 🔍 Before Feature Engineering - Show working directory and files
+        run: |
+          echo "PWD before feature engineering:"
+          pwd
+          echo "Files before feature engineering:"
+          ls -R
+
       - name: 🏗️ Run feature engineering
         run: python src/feature_engineering.py
 
+      - name: 🔍 After Feature Engineering - Show working directory and files
+        run: |
+          echo "PWD after feature engineering:"
+          pwd
+          echo "Files after feature engineering:"
+          ls -R
+
+      # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
         run: python src/train_multi_model.py
       
