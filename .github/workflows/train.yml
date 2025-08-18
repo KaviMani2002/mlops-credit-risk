@@ -104,3 +104,11 @@ jobs:
 
       - name: 🚀 Promote Models to Staging stage
         run: python src/promote_best_models.py
+
+      # ---------- CLEANUP ----------
+      - name: 🧹 Cleanup working directory
+        run: |
+          echo "Cleaning up /home/azureuser/actions-runner/_work ..."
+          rm -rf /home/azureuser/actions-runner/_work/*
+          echo "Cleanup completed."
+
