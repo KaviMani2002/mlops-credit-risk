@@ -1,6 +1,5 @@
 name: Train Multi Model with DVC
 
-
 on:
   workflow_dispatch:
   push:
@@ -43,17 +42,17 @@ jobs:
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
-        run: dvc pull
+        run: dvc pull data/raw/accepted_2007_to_2018Q4.csv
 
       - name: 🔍 SonarQube Scan
         run: |
           docker exec -e SONAR_HOST_URL="http://20.106.177.129:9000" \
             -e SONAR_LOGIN="${{ secrets.SONAR_TOKEN }}" \
-            <container_name_or_id> \
+            sonarqube \
             sonar-scanner \
             -Dsonar.projectKey=credit-risk \
             -Dsonar.sources=/usr/src/
-
+            
       # ---------- DATA INGESTION ----------
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
@@ -65,6 +64,7 @@ jobs:
       # ---------- FEATURE ENGINEERING ----------
       - name: 🏗️ Run feature engineering
         run: python src/feature_engineering.py
+
 
       # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
