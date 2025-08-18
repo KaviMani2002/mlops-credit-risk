@@ -33,7 +33,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "cryptography<41"     # Fix DVC OpenSSL error
-          pip install 'dvc[azure]>=2.41.0'  # Ensure latest compatible DVC
+          pip install "dvc[azure]>=2.41.0"  # Latest compatible DVC
+
+      - name: 🔍 Check DVC and cryptography versions
+        run: |
+          python -c "import cryptography; print('cryptography version:', cryptography.__version__)"
+          dvc --version
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
