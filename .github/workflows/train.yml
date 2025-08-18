@@ -9,14 +9,12 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted  # ✅ Use self-hosted runner
+    runs-on: self-hosted
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
-      # or use the below line if you're using connection string instead
-      # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       GITHUB_ACTIONS: true
 
     steps:
@@ -28,17 +26,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install dependencies safely
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install "cryptography<41"     # Fix DVC OpenSSL error
-          pip install "dvc[azure]>=2.41.0"  # Latest compatible DVC
+          pip uninstall pyopenssl cryptography -y
+          pip install "dvc[azure]==2.44.0"  # safe DVC version
+          pip install azure-storage-blob
 
-      - name: 🔍 Check DVC and cryptography versions
-        run: |
-          python -c "import cryptography; print('cryptography version:', cryptography.__version__)"
-          dvc --version
+      - name: 🔍 Verify DVC version
+        run: dvc --version
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
