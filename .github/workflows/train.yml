@@ -106,5 +106,15 @@ jobs:
       - name: 🧹 Cleanup runner workspace
         if: always()
         run: |
-          echo "Cleaning up runner workspace..."
-          sudo rm -rf "$RUNNER_WORKSPACE"/*
+          echo "Cleaning up runner workspace and caches..."
+
+          # Remove only the repo checkout inside _work
+          if [ -d "$RUNNER_WORKSPACE" ]; then
+            sudo rm -rf "$RUNNER_WORKSPACE"/*
+          fi
+
+          # Remove DVC and pip caches
+          rm -rf ~/.dvc/cache || true
+          rm -rf ~/.cache/pip || true
+
+          echo "Cleanup complete."
