@@ -9,7 +9,7 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted  # ✅ Self-hosted runner
+    runs-on: self-hosted
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
