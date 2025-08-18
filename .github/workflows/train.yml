@@ -9,19 +9,26 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted  # ✅ Use self-hosted runner
+    runs-on: [self-hosted, mlops]  # pin to your runner
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
-      # or use the below line if you're using connection string instead
-      # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       GITHUB_ACTIONS: true
 
     steps:
       - name: 📥 Checkout repo
         uses: actions/checkout@v3
+
+      - name: 🖥️ Debug runner environment
+        run: |
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Architecture: ${{ runner.arch }}"
+          python --version
+          pip --version
+          df -h
+          free -m
 
       - name: 🐍 Set up Python
         uses: actions/setup-python@v4
@@ -36,90 +43,39 @@ jobs:
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
-          dvc remote add -d azureremote azure://dvcdata
+          dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
         run: dvc pull
 
-      # ---------- VERIFY DVC DATA ----------
       - name: 🔎 Verify pulled data integrity
         run: |
-          echo "🔍 Checking DVC data status..."
           dvc status -c
-          echo "🔍 Checking DVC environment..."
           dvc doctor
-          echo "📂 Listing pulled data files:"
           ls -lh data/ || true
-          echo "📝 Showing DVC-tracked files:"
           ls -lh *.dvc || true
-          echo "📝 DVC list of repo:"
           dvc list .
-
-      # ---------- DATA INGESTION ----------
-      - name: 🔍 Before Data Ingestion - Show working directory and files
-        run: |
-          echo "PWD before ingestion:"
-          pwd
-          echo "Files before ingestion:"
-          ls -R
 
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
 
-      - name: 🔍 After Data Ingestion - Show working directory and files
-        run: |
-          echo "PWD after ingestion:"
-          pwd
-          echo "Files after ingestion:"
-          ls -R
-
-      # ---------- DATA CLEANING ----------
-      - name: 🔍 Before Data Cleaning - Show working directory and files
-        run: |
-          echo "PWD before cleaning:"
-          pwd
-          echo "Files before cleaning:"
-          ls -R
-
       - name: 🧹 Run data cleaning
         run: python src/data_cleaning.py
-
-      - name: 🔍 After Data Cleaning - Show working directory and files
-        run: |
-          echo "PWD after cleaning:"
-          pwd
-          echo "Files after cleaning:"
-          ls -R
-
-      # ---------- FEATURE ENGINEERING ----------
-      - name: 🔍 Before Feature Engineering - Show working directory and files
-        run: |
-          echo "PWD before feature engineering:"
-          pwd
-          echo "Files before feature engineering:"
-          ls -R
 
       - name: 🏗️ Run feature engineering
         run: python src/feature_engineering.py
 
-      - name: 🔍 After Feature Engineering - Show working directory and files
-        run: |
-          echo "PWD after feature engineering:"
-          pwd
-          echo "Files after feature engineering:"
-          ls -R
-
-      # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
         run: python src/train_multi_model.py
       
       - name: 🚀 Promote Models to Staging stage
         run: python src/promote_best_models.py
 
-      # ---------- CLEANUP STEP ----------
       - name: 🧹 Cleanup runner workspace
         if: always()
         run: |
           echo "Cleaning up runner workspace..."
-          sudo rm -rf "$RUNNER_WORKSPACE"/*
+          sudo rm -rf "${{ github.workspace }}"/*
+          sudo rm -rf ~/.dvc/cache || true
+          sudo rm -rf ~/.cache/pip || true
