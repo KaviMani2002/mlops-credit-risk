@@ -78,6 +78,8 @@ jobs:
 
       # ---------- CLEANUP ----------
       - name: 🧹 Cleanup working directory
+        if: always()                       # Ensures this step runs regardless of previous failures
+        continue-on-error: true             # Ensures pipeline does not fail if cleanup fails
         run: |
           echo "Cleaning up /home/azureuser/actions-runner/_work ..."
           rm -rf /home/azureuser/actions-runner/_work
