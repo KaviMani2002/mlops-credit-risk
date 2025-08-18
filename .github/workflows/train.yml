@@ -10,7 +10,7 @@ on:
 
 jobs:
   train-model:
-    runs-on: [self-hosted, mlops]  # pin to your runner
+    runs-on: self-hosted  # pin to your runner
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
