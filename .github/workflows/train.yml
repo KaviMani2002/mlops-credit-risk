@@ -30,7 +30,7 @@ jobs:
           df -h
           free -m
 
-      # - name: 🐍 Set up Python (optional, commented out for minimal approach)
+      # - name: 🐍 Set up Python (optional, commented out)
       #   uses: actions/setup-python@v4
       #   with:
       #     python-version: '3.10'
@@ -38,8 +38,8 @@ jobs:
       - name: 📦 Install dependencies
         run: |
           python3 -m pip install --upgrade pip --no-cache-dir
+          pip3 install --upgrade --no-cache-dir dvc[azure] cryptography
           pip3 install --no-cache-dir -r requirements.txt
-          pip3 install --no-cache-dir 'dvc[azure]'
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
@@ -47,7 +47,9 @@ jobs:
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
-        run: dvc pull
+        run: |
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+          dvc pull
 
       - name: 🔎 Verify pulled data integrity
         run: |
