@@ -1,110 +1,103 @@
 name: Train Multi Model with DVC
-
+ 
 on:
   workflow_dispatch:
   push:
     paths:
       - 'src/**.py'
       - '.github/workflows/train.yml'
-
+ 
 jobs:
   train-model:
-    runs-on: self-hosted
-
+    runs-on: self-hosted  # ✅ Use self-hosted runner
+ 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+      # or use the below line if you're using connection string instead
+      # AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       GITHUB_ACTIONS: true
-
+ 
     steps:
       - name: 📥 Checkout repo
         uses: actions/checkout@v3
-
-      - name: 🖥️ Debug runner environment
-        run: |
-          echo "Runner OS: ${{ runner.os }}"
-          echo "Architecture: ${{ runner.arch }}"
-          python3 --version
-          pip3 --version
-          df -h
-          free -m
-
-      # ---------------- INSTALL DEPENDENCIES ----------------
+ 
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+ 
       - name: 📦 Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install --no-cache-dir "cryptography<41"
-          pip3 install --no-cache-dir "dvc[azure]"
-          pip3 install --no-cache-dir -r requirements.txt
-
-      # ---------------- CONFIGURE DVC REMOTE ----------------
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install 'dvc[azure]'
+ 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
-          dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
+          dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
-
-      # ---------------- PULL DATA FROM DVC ----------------
+ 
       - name: ⬇️ Pull data from Azure DVC remote
+        run: dvc pull
+ 
+      # ---------- DATA INGESTION ----------
+      - name: 🔍 Before Data Ingestion - Show working directory and files
         run: |
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-          dvc pull
-
-      # ---------------- VERIFY DATA ----------------
-      - name: 🔎 Verify pulled data integrity
-        run: |
-          dvc status -c
-          dvc doctor
-          ls -lh data/ || true
-          ls -lh *.dvc || true
-          dvc list .
-
-      # ---------------- DATA INGESTION ----------------
+          echo "PWD before ingestion:"
+          pwd
+          echo "Files before ingestion:"
+          ls -R
+ 
       - name: 📂 Run data ingestion
-        run: python3 src/data_ingestion.py
-
-      # ---------------- DATA CLEANING ----------------
-      - name: 🧹 Run data cleaning
-        run: python3 src/data_cleaning.py
-
-      # ---------------- FEATURE ENGINEERING ----------------
-      - name: 🏗️ Run feature engineering
-        run: python3 src/feature_engineering.py
-
-      # ---------------- MODEL TRAINING ----------------
-      - name: 🚀 Train models and log to MLflow
-        run: python3 src/train_multi_model.py
-
-      - name: 🚀 Promote Models to Staging stage
-        run: python3 src/promote_best_models.py
-
-      # ---------------- CLEANUP STEP ----------------
-      - name: 🧹 Cleanup runner workspace and caches
-        if: always()
+        run: python src/data_ingestion.py
+ 
+      - name: 🔍 After Data Ingestion - Show working directory and files
         run: |
-          echo "Cleaning up runner workspace and caches..."
-
-          # Remove repo workspace safely
-          sudo rm -rf "${{ github.workspace }}"/* || true
-
-          # Remove DVC and pip caches
-          rm -rf ~/.dvc/cache || true
-          rm -rf ~/.cache/pip || true
-
-          # Clear runner _work folder except _actions
-          if [ -d "/home/azureuser/actions-runner/_work" ]; then
-            sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 \
-              -not -name "_actions" -exec rm -rf {} +
-          fi
-
-          # Clear _tool folder
-          if [ -d "/home/azureuser/actions-runner/_tool" ]; then
-            sudo rm -rf /home/azureuser/actions-runner/_tool/*
-          fi
-
-          # Remove old logs
-          if [ -d "/home/azureuser/actions-runner/_diag" ]; then
-            sudo rm -rf /home/azureuser/actions-runner/_diag/* || true
-          fi
-
-          echo "Cleanup complete."
+          echo "PWD after ingestion:"
+          pwd
+          echo "Files after ingestion:"
+          ls -R
+ 
+      # ---------- DATA CLEANING ----------
+      - name: 🔍 Before Data Cleaning - Show working directory and files
+        run: |
+          echo "PWD before cleaning:"
+          pwd
+          echo "Files before cleaning:"
+          ls -R
+ 
+      - name: 🧹 Run data cleaning
+        run: python src/data_cleaning.py
+ 
+      - name: 🔍 After Data Cleaning - Show working directory and files
+        run: |
+          echo "PWD after cleaning:"
+          pwd
+          echo "Files after cleaning:"
+          ls -R
+ 
+      # ---------- FEATURE ENGINEERING ----------
+      - name: 🔍 Before Feature Engineering - Show working directory and files
+        run: |
+          echo "PWD before feature engineering:"
+          pwd
+          echo "Files before feature engineering:"
+          ls -R
+ 
+      - name: 🏗️ Run feature engineering
+        run: python src/feature_engineering.py
+ 
+      - name: 🔍 After Feature Engineering - Show working directory and files
+        run: |
+          echo "PWD after feature engineering:"
+          pwd
+          echo "Files after feature engineering:"
+          ls -R
+ 
+      # ---------- MODEL TRAINING ----------
+      - name: 🚀 Train models and log to MLflow
+        run: python src/train_multi_model.py
+      - name: 🚀 Promote Models to Staging stage
+        run: python src/promote_best_models.py
