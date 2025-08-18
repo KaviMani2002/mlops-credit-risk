@@ -51,8 +51,10 @@ jobs:
           dvc doctor
           echo "📂 Listing pulled data files:"
           ls -lh data/ || true
-          echo "📝 Showing DVC lock file (data version):"
-          cat dvc.lock
+          echo "📝 Showing DVC-tracked files:"
+          ls -lh *.dvc || true
+          echo "📝 DVC list of repo:"
+          dvc list .
 
       # ---------- DATA INGESTION ----------
       - name: 🔍 Before Data Ingestion - Show working directory and files
