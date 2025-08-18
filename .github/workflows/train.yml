@@ -9,7 +9,7 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted  # ✅ Use self-hosted runner
+    runs-on: self-hosted
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
@@ -24,13 +24,12 @@ jobs:
       # ---------- PYTHON VENV ----------
       - name: 🐍 Setup Python virtual environment
         run: |
-          python -m venv .venv
+          python3 -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip
-          # Pin cryptography <41 to avoid OpenSSL X509 error
-          pip install --upgrade "cryptography<41"
-          pip install "dvc[azure]==2.45.2" --no-cache-dir
-          pip install -r requirements.txt --no-cache-dir
+          python3 -m pip install --upgrade pip
+          pip3 install --upgrade "cryptography<41"
+          pip3 install "dvc[azure]==2.45.2" --no-cache-dir
+          pip3 install -r requirements.txt --no-cache-dir
 
       # ---------- DVC CONFIG ----------
       - name: ⚙️ Configure DVC Azure Remote
@@ -46,43 +45,33 @@ jobs:
           dvc pull
 
       # ---------- DATA INGESTION ----------
-      - name: 🔍 Before Data Ingestion - Show working directory and files
-        run: |
-          echo "PWD before ingestion:"; pwd
-          echo "Files before ingestion:"; ls -R
-
       - name: 📂 Run data ingestion
         run: |
           source .venv/bin/activate
-          python src/data_ingestion.py
-
-      - name: 🔍 After Data Ingestion - Show working directory and files
-        run: |
-          echo "PWD after ingestion:"; pwd
-          echo "Files after ingestion:"; ls -R
+          python3 src/data_ingestion.py
 
       # ---------- DATA CLEANING ----------
       - name: 🧹 Run data cleaning
         run: |
           source .venv/bin/activate
-          python src/data_cleaning.py
+          python3 src/data_cleaning.py
 
       # ---------- FEATURE ENGINEERING ----------
       - name: 🏗️ Run feature engineering
         run: |
           source .venv/bin/activate
-          python src/feature_engineering.py
+          python3 src/feature_engineering.py
 
       # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
         run: |
           source .venv/bin/activate
-          python src/train_multi_model.py
+          python3 src/train_multi_model.py
 
       - name: 🚀 Promote Models to Staging stage
         run: |
           source .venv/bin/activate
-          python src/promote_best_models.py
+          python3 src/promote_best_models.py
 
       # ---------- CLEANUP ----------
       - name: 🧹 Cleanup runner workspace and caches
@@ -92,5 +81,5 @@ jobs:
           sudo rm -rf "$RUNNER_WORKSPACE"/*
           rm -rf ~/.cache/pip
           rm -rf ~/.dvc/cache
-          sudo rm -rf /home/azureuser/actions-runner/_work/*  # free space
+          sudo rm -rf /home/azureuser/actions-runner/_work/*
           echo "Cleanup complete."
