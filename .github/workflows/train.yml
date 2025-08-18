@@ -46,12 +46,14 @@ jobs:
 
       - name: 🔍 SonarQube Scan
         run: |
-          docker exec -e SONAR_HOST_URL="http://20.106.177.129:9000" \
-            -e SONAR_LOGIN="${{ secrets.SONAR_TOKEN }}" \
-            sonarqube \
-            sonar-scanner \
-            -Dsonar.projectKey=credit-risk \
-            -Dsonar.sources=/usr/src/
+          docker run --rm \
+          -e SONAR_HOST_URL="http://20.106.177.129:9000" \
+          -e SONAR_LOGIN="${{ secrets.SONAR_TOKEN }}" \
+          -v /home/azureuser/actions-runner/_work:/usr/src \
+          sonarsource/sonar-scanner-cli \
+          -Dsonar.projectKey=credit-risk \
+          -Dsonar.sources=/usr/src
+
             
       # ---------- DATA INGESTION ----------
       - name: 📂 Run data ingestion
