@@ -82,6 +82,6 @@ jobs:
         continue-on-error: true             # Ensures pipeline does not fail if cleanup fails
         run: |
           echo "Cleaning up /home/azureuser/actions-runner/_work ..."
-          rm -rf /home/azureuser/actions-runner/_work/mlops-credit-risk/*
+          rm -rf /home/azureuser/actions-runner/_work/mlops-credit-risk
           echo "Cleanup completed."
 
