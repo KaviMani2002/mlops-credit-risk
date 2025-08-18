@@ -9,7 +9,7 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted  # pin to your runner
+    runs-on: self-hosted
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
@@ -30,44 +30,73 @@ jobs:
           df -h
           free -m
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: 📦 Install dependencies
+      # ------------------- Setup Python venv -------------------
+      - name: 🐍 Setup Python virtual environment
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install -r requirements.txt
-          pip3 install 'dvc[azure]'
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install "cryptography<41"
+          pip install "dvc[azure]==2.45.2"
+          pip install -r requirements.txt
 
+      # ------------------- Configure DVC -------------------
       - name: ⚙️ Configure DVC Azure Remote
         run: |
+          source .venv/bin/activate
           dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
+      # ------------------- Pull Data -------------------
       - name: ⬇️ Pull data from Azure DVC remote
-        run: dvc pull
+        run: |
+          source .venv/bin/activate
+          dvc pull
 
       - name: 🔎 Verify pulled data integrity
         run: |
+          source .venv/bin/activate
           dvc status -c
           dvc doctor
           ls -lh data/ || true
           ls -lh *.dvc || true
           dvc list .
 
+      # ------------------- Data Ingestion -------------------
       - name: 📂 Run data ingestion
-        run: python3 src/data_ingestion.py
+        run: |
+          source .venv/bin/activate
+          python src/data_ingestion.py
 
+      # ------------------- Data Cleaning -------------------
       - name: 🧹 Run data cleaning
-        run: python3 src/data_cleaning.py
+        run: |
+          source .venv/bin/activate
+          python src/data_cleaning.py
 
+      # ------------------- Feature Engineering -------------------
       - name: 🏗️ Run feature engineering
-        run: python3 src/feature_engineering.py
+        run: |
+          source .venv/bin/activate
+          python src/feature_engineering.py
 
+      # ------------------- Model Training -------------------
       - name: 🚀 Train models and log to MLflow
-        run: python3 src/train_multi_model.py
+        run: |
+          source .venv/bin/activate
+          python src/train_multi_model.py
 
       - name: 🚀 Promote Models to Staging stage
-        run: python3 src/promote_best_models.py
+        run: |
+          source .venv/bin/activate
+          python src/promote_best_models.py
+
+      # ------------------- Cleanup -------------------
+      - name: 🧹 Cleanup runner workspace and caches
+        if: always()
+        run: |
+          echo "Cleaning up runner workspace and caches..."
+          sudo rm -rf "$RUNNER_WORKSPACE"/*
+          rm -rf ~/.cache/pip || true
+          rm -rf ~/.dvc/cache || true
+          echo "Cleanup complete."
