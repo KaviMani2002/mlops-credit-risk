@@ -80,6 +80,6 @@ jobs:
       - name: 🧹 Cleanup working directory
         run: |
           echo "Cleaning up /home/azureuser/actions-runner/_work ..."
-          rm -rf /home/azureuser/actions-runner/_work/*
+          rm -rf /home/azureuser/actions-runner/_work
           echo "Cleanup completed."
 
