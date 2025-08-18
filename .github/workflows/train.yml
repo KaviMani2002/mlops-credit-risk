@@ -47,8 +47,8 @@ jobs:
         run: |
           echo "🔍 Checking DVC data status..."
           dvc status -c
-          echo "🔍 Checking DVC cache integrity..."
-          dvc check-integrity
+          echo "🔍 Checking DVC environment..."
+          dvc doctor
           echo "📂 Listing pulled data files:"
           ls -lh data/ || true
           echo "📝 Showing DVC lock file (data version):"
