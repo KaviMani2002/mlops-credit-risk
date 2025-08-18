@@ -30,6 +30,7 @@ jobs:
           df -h
           free -m
 
+      # ---------------- INSTALL DEPENDENCIES ----------------
       - name: 📦 Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -37,16 +38,19 @@ jobs:
           pip3 install --no-cache-dir "dvc[azure]"
           pip3 install --no-cache-dir -r requirements.txt
 
+      # ---------------- CONFIGURE DVC REMOTE ----------------
       - name: ⚙️ Configure DVC Azure Remote
         run: |
           dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
+      # ---------------- PULL DATA FROM DVC ----------------
       - name: ⬇️ Pull data from Azure DVC remote
         run: |
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
           dvc pull
 
+      # ---------------- VERIFY DATA ----------------
       - name: 🔎 Verify pulled data integrity
         run: |
           dvc status -c
@@ -55,49 +59,49 @@ jobs:
           ls -lh *.dvc || true
           dvc list .
 
-      # ---------- DATA INGESTION ----------
+      # ---------------- DATA INGESTION ----------------
       - name: 📂 Run data ingestion
         run: python3 src/data_ingestion.py
 
-      # ---------- DATA CLEANING ----------
+      # ---------------- DATA CLEANING ----------------
       - name: 🧹 Run data cleaning
         run: python3 src/data_cleaning.py
 
-      # ---------- FEATURE ENGINEERING ----------
+      # ---------------- FEATURE ENGINEERING ----------------
       - name: 🏗️ Run feature engineering
         run: python3 src/feature_engineering.py
 
-      # ---------- MODEL TRAINING ----------
+      # ---------------- MODEL TRAINING ----------------
       - name: 🚀 Train models and log to MLflow
         run: python3 src/train_multi_model.py
 
       - name: 🚀 Promote Models to Staging stage
         run: python3 src/promote_best_models.py
 
-      # ---------- CLEANUP STEP ----------
+      # ---------------- CLEANUP STEP ----------------
       - name: 🧹 Cleanup runner workspace and caches
         if: always()
         run: |
           echo "Cleaning up runner workspace and caches..."
-          
+
           # Remove repo workspace safely
           sudo rm -rf "${{ github.workspace }}"/* || true
-          
+
           # Remove DVC and pip caches
           rm -rf ~/.dvc/cache || true
           rm -rf ~/.cache/pip || true
-          
+
           # Clear runner _work folder except _actions
           if [ -d "/home/azureuser/actions-runner/_work" ]; then
             sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 \
               -not -name "_actions" -exec rm -rf {} +
           fi
-          
+
           # Clear _tool folder
           if [ -d "/home/azureuser/actions-runner/_tool" ]; then
             sudo rm -rf /home/azureuser/actions-runner/_tool/*
           fi
-          
+
           # Remove old logs
           if [ -d "/home/azureuser/actions-runner/_diag" ]; then
             sudo rm -rf /home/azureuser/actions-runner/_diag/* || true
