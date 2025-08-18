@@ -72,10 +72,13 @@ jobs:
       - name: 🚀 Promote Models to Staging stage
         run: python3 src/promote_best_models.py
 
-      - name: 🧹 Cleanup runner workspace
+      # 🔥 Cleanup step
+      - name: 🧹 Cleanup runner workspace and caches
         if: always()
         run: |
-          echo "Cleaning up runner workspace..."
+          echo "Cleaning up runner workspace and caches..."
           sudo rm -rf "${{ github.workspace }}"/*
           sudo rm -rf ~/.dvc/cache || true
           sudo rm -rf ~/.cache/pip || true
+          sudo rm -rf /home/azureuser/actions-runner/_work/* || true
+          sudo rm -rf /home/azureuser/actions-runner/_tool/* || true
