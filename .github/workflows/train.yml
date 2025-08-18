@@ -9,7 +9,7 @@ on:
 
 jobs:
   train-model:
-    runs-on: self-hosted
+    runs-on: self-hosted  # pin to your runner
 
     env:
       MLFLOW_TRACKING_URI: http://20.106.177.129:5000
@@ -21,65 +21,53 @@ jobs:
       - name: 📥 Checkout repo
         uses: actions/checkout@v3
 
-      # ---------- PYTHON VENV ----------
-      - name: 🐍 Setup Python virtual environment
+      - name: 🖥️ Debug runner environment
         run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          python3 -m pip install --upgrade pip
-          pip3 install --upgrade "cryptography<41"
-          pip3 install "dvc[azure]==2.45.2" --no-cache-dir
-          pip3 install -r requirements.txt --no-cache-dir
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Architecture: ${{ runner.arch }}"
+          python3 --version
+          pip3 --version
+          df -h
+          free -m
 
-      # ---------- DVC CONFIG ----------
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          pip3 install 'dvc[azure]'
+
       - name: ⚙️ Configure DVC Azure Remote
         run: |
-          source .venv/bin/activate
-          dvc remote add -d azureremote azure://dvcdata || true
+          dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
       - name: ⬇️ Pull data from Azure DVC remote
-        run: |
-          source .venv/bin/activate
-          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-          dvc pull
+        run: dvc pull
 
-      # ---------- DATA INGESTION ----------
+      - name: 🔎 Verify pulled data integrity
+        run: |
+          dvc status -c
+          dvc doctor
+          ls -lh data/ || true
+          ls -lh *.dvc || true
+          dvc list .
+
       - name: 📂 Run data ingestion
-        run: |
-          source .venv/bin/activate
-          python3 src/data_ingestion.py
+        run: python3 src/data_ingestion.py
 
-      # ---------- DATA CLEANING ----------
       - name: 🧹 Run data cleaning
-        run: |
-          source .venv/bin/activate
-          python3 src/data_cleaning.py
+        run: python3 src/data_cleaning.py
 
-      # ---------- FEATURE ENGINEERING ----------
       - name: 🏗️ Run feature engineering
-        run: |
-          source .venv/bin/activate
-          python3 src/feature_engineering.py
+        run: python3 src/feature_engineering.py
 
-      # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
-        run: |
-          source .venv/bin/activate
-          python3 src/train_multi_model.py
+        run: python3 src/train_multi_model.py
 
       - name: 🚀 Promote Models to Staging stage
-        run: |
-          source .venv/bin/activate
-          python3 src/promote_best_models.py
-
-      # ---------- CLEANUP ----------
-      - name: 🧹 Cleanup runner workspace and caches
-        if: always()
-        run: |
-          echo "Cleaning up runner workspace and caches..."
-          sudo rm -rf "$RUNNER_WORKSPACE"/*
-          rm -rf ~/.cache/pip
-          rm -rf ~/.dvc/cache
-          sudo rm -rf /home/azureuser/actions-runner/_work/*
-          echo "Cleanup complete."
+        run: python3 src/promote_best_models.py
