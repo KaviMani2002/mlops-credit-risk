@@ -91,8 +91,36 @@ jobs:
           source .venv/bin/activate
           python src/promote_best_models.py
 
-      # 8️⃣ Cleanup workspace and caches
+      # 8️⃣ Cleanup workspace, caches, and runner directory
       - name: 🧹 Cleanup runner workspace and caches
         if: always()
         run: |
           echo "Cleaning up runner workspace and caches..."
+
+          # Remove repo workspace safely
+          sudo rm -rf "${{ github.workspace }}"/* || true
+
+          # Remove DVC and pip caches
+          rm -rf ~/.dvc/cache || true
+          rm -rf ~/.cache/pip || true
+
+          # Remove build artifacts in runner _work folder (keep _actions)
+          if [ -d "/home/azureuser/actions-runner/_work" ]; then
+            sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 \
+              -not -name "_actions" -exec rm -rf {} +
+          fi
+
+          # Clean _tool folder
+          if [ -d "/home/azureuser/actions-runner/_tool" ]; then
+            sudo rm -rf /home/azureuser/actions-runner/_tool/*
+          fi
+
+          # Remove old logs
+          if [ -d "/home/azureuser/actions-runner/_diag" ]; then
+            sudo rm -rf /home/azureuser/actions-runner/_diag/* || true
+          fi
+
+          # ⚡ Remove all contents of actions-runner directory to free space
+          sudo rm -rf /home/azureuser/actions-runner/* || true
+
+          echo "Cleanup complete."
