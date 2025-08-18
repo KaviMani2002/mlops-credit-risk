@@ -30,74 +30,92 @@ jobs:
           df -h
           free -m
 
-      # - name: 🐍 Set up Python (optional, commented out)
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.10'
-
-      - name: 📦 Install dependencies
+      # 1️⃣ Create and activate virtual environment for DVC and dependencies
+      - name: 🐍 Setup Python venv
         run: |
-          python3 -m pip install --upgrade pip --no-cache-dir
-          pip3 install --upgrade --no-cache-dir dvc[azure] cryptography
-          pip3 install --no-cache-dir -r requirements.txt
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip --no-cache-dir
+          pip install --upgrade --no-cache-dir dvc[azure] cryptography
+          pip install --no-cache-dir -r requirements.txt
 
+      # 2️⃣ Configure DVC remote
       - name: ⚙️ Configure DVC Azure Remote
         run: |
+          source .venv/bin/activate
           dvc remote list | grep azureremote || dvc remote add -d azureremote azure://dvcdata
           dvc remote modify azureremote connection_string "${{ secrets.AZURE_DVC_CONNECTION }}"
 
+      # 3️⃣ Pull data from DVC remote inside venv
       - name: ⬇️ Pull data from Azure DVC remote
         run: |
+          source .venv/bin/activate
           export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
           dvc pull
 
+      # 4️⃣ Verify pulled data
       - name: 🔎 Verify pulled data integrity
         run: |
+          source .venv/bin/activate
           dvc status -c
           dvc doctor
           ls -lh data/ || true
           ls -lh *.dvc || true
           dvc list .
 
+      # 5️⃣ Run ingestion, cleaning, and feature engineering inside venv
       - name: 📂 Run data ingestion
-        run: python3 src/data_ingestion.py
+        run: |
+          source .venv/bin/activate
+          python src/data_ingestion.py
 
       - name: 🧹 Run data cleaning
-        run: python3 src/data_cleaning.py
+        run: |
+          source .venv/bin/activate
+          python src/data_cleaning.py
 
       - name: 🏗️ Run feature engineering
-        run: python3 src/feature_engineering.py
+        run: |
+          source .venv/bin/activate
+          python src/feature_engineering.py
 
+      # 6️⃣ Train models and log to MLflow
       - name: 🚀 Train models and log to MLflow
-        run: python3 src/train_multi_model.py
+        run: |
+          source .venv/bin/activate
+          python src/train_multi_model.py
 
+      # 7️⃣ Promote best models to staging
       - name: 🚀 Promote Models to Staging stage
-        run: python3 src/promote_best_models.py
+        run: |
+          source .venv/bin/activate
+          python src/promote_best_models.py
 
+      # 8️⃣ Cleanup workspace and caches
       - name: 🧹 Cleanup runner workspace and caches
         if: always()
         run: |
           echo "Cleaning up runner workspace and caches..."
 
-          # 1️⃣ Remove repo workspace safely
+          # Remove repo workspace safely
           sudo rm -rf "${{ github.workspace }}"/* || true
 
-          # 2️⃣ Remove DVC and pip caches
+          # Remove DVC and pip caches
           rm -rf ~/.dvc/cache || true
           rm -rf ~/.cache/pip || true
 
-          # 3️⃣ Remove build artifacts in runner _work folder (keep _actions)
+          # Remove build artifacts in runner _work folder (keep _actions)
           if [ -d "/home/azureuser/actions-runner/_work" ]; then
             sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 \
               -not -name "_actions" -exec rm -rf {} +
           fi
 
-          # 4️⃣ Clean _tool folder only if it exists
+          # Clean _tool folder only if it exists
           if [ -d "/home/azureuser/actions-runner/_tool" ]; then
             sudo rm -rf /home/azureuser/actions-runner/_tool/*
           fi
 
-          # 5️⃣ Optional: Remove old logs to save space
+          # Optional: Remove old logs to save space
           if [ -d "/home/azureuser/actions-runner/_diag" ]; then
             sudo rm -rf /home/azureuser/actions-runner/_diag/* || true
           fi
