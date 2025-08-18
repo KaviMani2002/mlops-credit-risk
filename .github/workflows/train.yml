@@ -1,6 +1,5 @@
 name: Train Multi Model with DVC
 
-
 on:
   workflow_dispatch:
   push:
@@ -26,8 +25,8 @@ jobs:
         run: |
           echo "Runner OS: ${{ runner.os }}"
           echo "Architecture: ${{ runner.arch }}"
-          python --version
-          pip --version
+          python3 --version
+          pip3 --version
           df -h
           free -m
 
@@ -38,9 +37,9 @@ jobs:
 
       - name: 📦 Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install 'dvc[azure]'
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          pip3 install 'dvc[azure]'
 
       - name: ⚙️ Configure DVC Azure Remote
         run: |
@@ -59,19 +58,19 @@ jobs:
           dvc list .
 
       - name: 📂 Run data ingestion
-        run: python src/data_ingestion.py
+        run: python3 src/data_ingestion.py
 
       - name: 🧹 Run data cleaning
-        run: python src/data_cleaning.py
+        run: python3 src/data_cleaning.py
 
       - name: 🏗️ Run feature engineering
-        run: python src/feature_engineering.py
+        run: python3 src/feature_engineering.py
 
       - name: 🚀 Train models and log to MLflow
-        run: python src/train_multi_model.py
-      
+        run: python3 src/train_multi_model.py
+
       - name: 🚀 Promote Models to Staging stage
-        run: python src/promote_best_models.py
+        run: python3 src/promote_best_models.py
 
       - name: 🧹 Cleanup runner workspace
         if: always()
