@@ -45,6 +45,15 @@ jobs:
       - name: ⬇️ Pull data from Azure DVC remote
         run: dvc pull
 
+      - name: 🔍 SonarQube Scan
+        run: |
+          docker exec -e SONAR_HOST_URL="http://20.106.177.129:9000" \
+            -e SONAR_LOGIN="${{ secrets.SONAR_TOKEN }}" \
+            <container_name_or_id> \
+            sonar-scanner \
+            -Dsonar.projectKey=credit-risk \
+            -Dsonar.sources=/usr/src/
+
       # ---------- DATA INGESTION ----------
       - name: 📂 Run data ingestion
         run: python src/data_ingestion.py
@@ -56,16 +65,6 @@ jobs:
       # ---------- FEATURE ENGINEERING ----------
       - name: 🏗️ Run feature engineering
         run: python src/feature_engineering.py
-
-      - name: 🔍 SonarQube Scan
-        run: |
-          docker run --rm \
-            -e SONAR_HOST_URL="http://20.106.177.129:9000" \
-            -e SONAR_LOGIN="${{ secrets.SONAR_TOKEN }}" \
-            -v "${{ github.workspace }}:/usr/src" \
-            sonarsource/sonar-scanner-cli \
-            -Dsonar.projectKey=credit-risk \
-            -Dsonar.sources=/usr/src
 
       # ---------- MODEL TRAINING ----------
       - name: 🚀 Train models and log to MLflow
