@@ -77,13 +77,21 @@ jobs:
         if: always()
         run: |
           echo "Cleaning up runner workspace and caches..."
+
           # Remove repo workspace safely
           sudo rm -rf "${{ github.workspace }}"/* || true
 
           # Remove DVC and pip cache
-          sudo rm -rf ~/.dvc/cache || true
-          sudo rm -rf ~/.cache/pip || true
+          rm -rf ~/.dvc/cache || true
+          rm -rf ~/.cache/pip || true
 
-          # Clean GitHub runner working dirs (avoid 'cd: too many arguments' issue)
-          sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-          sudo find /home/azureuser/actions-runner/_tool -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          # Remove only build artifacts, not GitHub action caches
+          if [ -d "/home/azureuser/actions-runner/_work" ]; then
+            sudo find /home/azureuser/actions-runner/_work -mindepth 1 -maxdepth 1 \
+              -not -name "_actions" -exec rm -rf {} +
+          fi
+
+          # Clean _tool only if it exists
+          if [ -d "/home/azureuser/actions-runner/_tool" ]; then
+            sudo rm -rf /home/azureuser/actions-runner/_tool/*
+          fi
