@@ -30,8 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip uninstall pyopenssl cryptography -y
-          pip install "dvc[azure]==2.44.0"  # safe DVC version
+          pip install "dvc[azure]>=3.0.0"   # latest DVC for md5/.dir support
           pip install azure-storage-blob
 
       - name: 🔍 Verify DVC version
