@@ -18,6 +18,14 @@ jobs:
       GITHUB_ACTIONS: true
 
     steps:
+
+      # ------------------ NODE.JS SETUP ------------------
+      - name: ⚡ Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+          
       # ------------------ CHECKOUT ------------------
       - name: 📥 Checkout repo
         uses: actions/checkout@v3
@@ -46,12 +54,6 @@ jobs:
 
       - name: ⬇️ Pull data from Azure DVC remote
         run: dvc pull data/raw/accepted_2007_to_2018Q4.csv
-
-      # ------------------ NODE.JS SETUP ------------------
-      - name: ⚡ Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
 
       # ------------------ SONARQUBE SCAN ------------------
       - name: 🔍 SonarQube Scan
